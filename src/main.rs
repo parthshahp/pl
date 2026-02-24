@@ -16,14 +16,20 @@ fn main() -> io::Result<()> {
 
 #[derive(Debug, Default)]
 struct App {
-    projects: Vec<OsString>,
+    projects: Vec<Project>,
     state: ListState,
     exit: bool,
 }
 
+#[derive(Debug)]
+struct Project {
+    project_name: OsString,
+    project_path: PathBuf,
+}
+
 impl App {
     fn run(&mut self, terminal: &mut DefaultTerminal) -> io::Result<()> {
-        self.projects = get_all_projects()?;
+        self.projects = get_all_projects();
         self.state.select_first();
 
         while !self.exit {
@@ -50,8 +56,10 @@ impl App {
     fn handle_key_event(&mut self, key_event: KeyEvent) {
         match key_event.code {
             KeyCode::Char('q') => self.exit(),
-            KeyCode::Char('j') => self.select_next(),
-            KeyCode::Char('k') => self.select_prev(),
+            KeyCode::Char('j') => self.state.select_next(),
+            KeyCode::Char('k') => self.state.select_previous(),
+            KeyCode::Char('G') => self.state.select_last(),
+            // TODO: Implement 'gg'
             KeyCode::Enter => self.select_project(),
             _ => {}
         }
@@ -61,17 +69,13 @@ impl App {
         self.exit = true;
     }
 
-    fn select_next(&mut self) {
-        self.state.select_next();
-    }
-
-    fn select_prev(&mut self) {
-        self.state.select_previous();
-    }
-
     fn select_project(&mut self) {
         if let Some(selected) = self.state.selected() {
-            println!("Project {} selected", selected)
+            let p = self.projects.get(selected).unwrap();
+            println!(
+                "Project {:?} at {:?} selected",
+                p.project_name, p.project_path
+            )
         }
     }
 }
@@ -81,7 +85,7 @@ impl Widget for &mut App {
         let items: Vec<ListItem> = self
             .projects
             .iter()
-            .map(|p| ListItem::new(p.to_string_lossy()))
+            .map(|p| ListItem::new(p.project_name.to_string_lossy()))
             .collect();
         let list = List::new(items)
             .block(Block::default().title("Projects").borders(Borders::ALL))
@@ -92,21 +96,23 @@ impl Widget for &mut App {
     }
 }
 
-fn get_all_projects() -> Result<Vec<OsString>, io::Error> {
-    let mut all_projects = vec![];
-    for proj_dir in PROJ_DIRS {
-        let proj_dir = parse_dir(proj_dir);
-
-        let projects = fs::read_dir(proj_dir)?;
-        for proj in projects {
-            let proj = proj?;
-            let proj_git_folder = proj.path().join(".git");
-            if proj_git_folder.exists() {
-                all_projects.push(proj.file_name());
-            }
-        }
-    }
-    Ok(all_projects)
+fn get_all_projects() -> Vec<Project> {
+    // TODO: Learn why we need the double flat_map
+    PROJ_DIRS
+        .iter()
+        .map(|d| parse_dir(d))
+        .flat_map(|dir| {
+            fs::read_dir(&dir)
+                .ok()
+                .into_iter()
+                .flat_map(|rd| rd.filter_map(Result::ok))
+        })
+        .filter(|entry| entry.path().join(".git").exists())
+        .map(|entry| Project {
+            project_name: entry.file_name(),
+            project_path: entry.path(),
+        })
+        .collect()
 }
 
 fn parse_dir(proj_dir: &str) -> PathBuf {
