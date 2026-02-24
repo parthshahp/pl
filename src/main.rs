@@ -1,7 +1,9 @@
 use crossterm::event::{self, Event, KeyCode, KeyEvent, KeyEventKind};
 use ratatui::buffer::Buffer;
-use ratatui::layout::Rect;
-use ratatui::widgets::{Block, Borders, List, ListItem, ListState, StatefulWidget, Widget};
+use ratatui::layout::{Constraint, Layout, Rect};
+use ratatui::widgets::{
+    Block, Borders, List, ListItem, ListState, Paragraph, StatefulWidget, Widget,
+};
 use ratatui::{DefaultTerminal, Frame};
 use std::ffi::OsString;
 use std::path::PathBuf;
@@ -82,6 +84,16 @@ impl App {
 
 impl Widget for &mut App {
     fn render(self, area: Rect, buf: &mut Buffer) {
+        let [left_area, right_area] =
+            Layout::horizontal([Constraint::Ratio(1, 2), Constraint::Ratio(1, 2)]).areas(area);
+        self.render_project_list(left_area, buf);
+        self.render_readme(right_area, buf);
+    }
+}
+
+/// UI Logic
+impl App {
+    fn render_project_list(&mut self, area: Rect, buf: &mut Buffer) {
         let items: Vec<ListItem> = self
             .projects
             .iter()
@@ -93,6 +105,24 @@ impl Widget for &mut App {
             .highlight_spacing(ratatui::widgets::HighlightSpacing::Always);
 
         StatefulWidget::render(list, area, buf, &mut self.state);
+    }
+
+    fn render_readme(&self, area: Rect, buf: &mut Buffer) {
+        // TODO: Either handle the None as 0 or make it so that unselected state is impossible
+        let selected_index = self.state.selected().unwrap();
+        let selected_path = &self.projects.get(selected_index).unwrap().project_path;
+        let readme_path = selected_path.join("README.md");
+
+        if let Ok(contents) = std::fs::read_to_string(&readme_path) {
+            Paragraph::new(contents)
+                .block(Block::bordered())
+                .render(area, buf);
+        } else {
+            Paragraph::new("No README")
+                .centered()
+                .block(Block::bordered())
+                .render(area, buf);
+        }
     }
 }
 
