@@ -1,24 +1,57 @@
 use crossterm::event::{self, Event, KeyCode, KeyEvent, KeyEventKind};
 use ratatui::buffer::Buffer;
 use ratatui::layout::{Constraint, Layout, Rect};
+use ratatui::style::Style;
+use ratatui::style::palette::tailwind::GRAY;
 use ratatui::widgets::{
     Block, Borders, List, ListItem, ListState, Paragraph, StatefulWidget, Widget,
 };
 use ratatui::{DefaultTerminal, Frame};
+use serde::Deserialize;
 use std::ffi::OsString;
 use std::path::PathBuf;
 use std::{fs, io};
-
-const PROJ_DIRS: &[&str; 1] = &["~/Projects"];
 
 fn main() -> io::Result<()> {
     ratatui::run(|terminal| App::default().run(terminal))?;
     Ok(())
 }
 
+#[derive(Debug, Deserialize, Default)]
+struct UserConfig {
+    #[serde(default = "default_project_dirs")]
+    project_dirs: Vec<String>,
+}
+
+fn default_project_dirs() -> Vec<String> {
+    vec!["~/Projects".to_string()]
+}
+
+fn load_user_config() -> io::Result<UserConfig> {
+    // Move to config crate??
+    let config_dir = dirs::config_dir()
+        .ok_or_else(|| io::Error::new(io::ErrorKind::NotFound, "config directory not found"))?;
+
+    let config_path = config_dir.join("pl").join("config.toml");
+
+    match fs::read_to_string(&config_path) {
+        Ok(raw) => toml::from_str(&raw).map_err(|e| {
+            io::Error::new(
+                io::ErrorKind::InvalidData,
+                format!("invalid config at {}: {e}", config_path.display()),
+            )
+        }),
+        Err(err) if err.kind() == io::ErrorKind::NotFound => Ok(UserConfig {
+            project_dirs: default_project_dirs(),
+        }),
+        Err(err) => Err(err),
+    }
+}
+
 #[derive(Debug, Default)]
 struct App {
     projects: Vec<Project>,
+    user_config: UserConfig,
     state: ListState,
     exit: bool,
 }
@@ -31,7 +64,12 @@ struct Project {
 
 impl App {
     fn run(&mut self, terminal: &mut DefaultTerminal) -> io::Result<()> {
-        self.projects = get_all_projects();
+        self.user_config = load_user_config()?;
+
+        // TODO: Remove the clone if possible
+        let proj_dirs = self.user_config.project_dirs.clone();
+        self.projects = get_all_projects(proj_dirs);
+
         self.state.select_first();
 
         while !self.exit {
@@ -102,6 +140,7 @@ impl App {
         let list = List::new(items)
             .block(Block::default().title("Projects").borders(Borders::ALL))
             .highlight_symbol(">")
+            .highlight_style(Style::new().bold().bg(GRAY.c900))
             .highlight_spacing(ratatui::widgets::HighlightSpacing::Always);
 
         StatefulWidget::render(list, area, buf, &mut self.state);
@@ -126,9 +165,9 @@ impl App {
     }
 }
 
-fn get_all_projects() -> Vec<Project> {
+fn get_all_projects(proj_dirs: Vec<String>) -> Vec<Project> {
     // TODO: Learn why we need the double flat_map
-    PROJ_DIRS
+    proj_dirs
         .iter()
         .map(|d| parse_dir(d))
         .flat_map(|dir| {
