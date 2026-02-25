@@ -17,14 +17,20 @@ fn main() -> io::Result<()> {
     Ok(())
 }
 
-#[derive(Debug, Deserialize, Default)]
+#[derive(Debug, Deserialize)]
+#[serde(default)]
 struct UserConfig {
-    #[serde(default = "default_project_dirs")]
     project_dirs: Vec<String>,
+    editor_command: String,
 }
 
-fn default_project_dirs() -> Vec<String> {
-    vec!["~/Projects".to_string()]
+impl Default for UserConfig {
+    fn default() -> Self {
+        Self {
+            project_dirs: vec!["~/Projects".to_string()],
+            editor_command: "nvim".to_string(),
+        }
+    }
 }
 
 fn load_user_config() -> io::Result<UserConfig> {
@@ -41,9 +47,7 @@ fn load_user_config() -> io::Result<UserConfig> {
                 format!("invalid config at {}: {e}", config_path.display()),
             )
         }),
-        Err(err) if err.kind() == io::ErrorKind::NotFound => Ok(UserConfig {
-            project_dirs: default_project_dirs(),
-        }),
+        Err(err) if err.kind() == io::ErrorKind::NotFound => Ok(UserConfig::default()),
         Err(err) => Err(err),
     }
 }
@@ -53,6 +57,7 @@ struct App {
     projects: Vec<Project>,
     user_config: UserConfig,
     state: ListState,
+    pending_open: bool,
     exit: bool,
 }
 
@@ -76,6 +81,16 @@ impl App {
             terminal.draw(|frame| self.draw(frame))?;
             self.handle_events()?;
         }
+
+        if let Some(selected) = self.state.selected()
+            && self.pending_open
+        {
+            let p = self.projects.get(selected).unwrap();
+            let _ = std::process::Command::new(&self.user_config.editor_command)
+                .arg(&p.project_path)
+                .status();
+        }
+
         Ok(())
     }
 
@@ -100,7 +115,7 @@ impl App {
             KeyCode::Char('k') => self.state.select_previous(),
             KeyCode::Char('G') => self.state.select_last(),
             // TODO: Implement 'gg'
-            KeyCode::Enter => self.select_project(),
+            KeyCode::Enter => self.open_project(),
             _ => {}
         }
     }
@@ -109,14 +124,9 @@ impl App {
         self.exit = true;
     }
 
-    fn select_project(&mut self) {
-        if let Some(selected) = self.state.selected() {
-            let p = self.projects.get(selected).unwrap();
-            println!(
-                "Project {:?} at {:?} selected",
-                p.project_name, p.project_path
-            )
-        }
+    fn open_project(&mut self) {
+        self.pending_open = true;
+        self.exit = true;
     }
 }
 
