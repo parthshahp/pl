@@ -1,4 +1,4 @@
-use crossterm::event::{self, Event, KeyCode, KeyEvent, KeyEventKind};
+use crossterm::event::{self, Event, KeyCode, KeyEvent, KeyEventKind, KeyModifiers};
 use ratatui::buffer::Buffer;
 use ratatui::layout::{Constraint, Layout, Rect};
 use ratatui::style::Style;
@@ -140,9 +140,14 @@ impl App {
                 KeyCode::Enter => self.open_project(),
                 _ => {}
             },
-            InputMode::Editing => match key_event.code {
-                KeyCode::Esc => self.stop_editing(),
-                KeyCode::Enter => self.stop_editing(),
+            InputMode::Editing => match (key_event.code, key_event.modifiers) {
+                (KeyCode::Esc, KeyModifiers::NONE) => self.stop_editing(),
+                (KeyCode::Enter, KeyModifiers::NONE) => self.stop_editing(),
+                (KeyCode::Char('n'), KeyModifiers::CONTROL)
+                | (KeyCode::Down, KeyModifiers::NONE) => self.state.select_next(),
+                (KeyCode::Char('p'), KeyModifiers::CONTROL) | (KeyCode::Up, KeyModifiers::NONE) => {
+                    self.state.select_previous()
+                }
                 _ => {
                     self.input.input_area.handle_event(&Event::Key(key_event));
                     self.filter_results();
