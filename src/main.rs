@@ -231,7 +231,7 @@ impl App {
         };
         let input = Paragraph::new(self.input.input_area.value())
             .style(style)
-            .block(Block::bordered().title("Input"));
+            .block(Block::bordered().title("Search"));
 
         Widget::render(input, area, buf);
     }
@@ -265,12 +265,12 @@ impl App {
 
         if let Ok(contents) = std::fs::read_to_string(&readme_path) {
             Paragraph::new(contents)
-                .block(Block::bordered())
+                .block(Block::bordered().title("README"))
                 .render(area, buf);
         } else {
             Paragraph::new("No README")
                 .centered()
-                .block(Block::bordered())
+                .block(Block::bordered().title("README"))
                 .render(area, buf);
         }
     }
