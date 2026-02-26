@@ -2,7 +2,6 @@ use crossterm::event::{self, Event, KeyCode, KeyEvent, KeyEventKind, KeyModifier
 use ratatui::buffer::Buffer;
 use ratatui::layout::{Constraint, Layout, Rect};
 use ratatui::style::Style;
-use ratatui::style::palette::tailwind::GRAY;
 use ratatui::widgets::{
     Block, Borders, List, ListItem, ListState, Paragraph, StatefulWidget, Widget,
 };
@@ -115,7 +114,20 @@ impl App {
     }
 
     fn draw(&mut self, frame: &mut Frame) {
-        frame.render_widget(self, frame.area());
+        // Need to remove this duplicate stuff
+        let [left_area, _right_area] =
+            Layout::horizontal([Constraint::Ratio(1, 2), Constraint::Ratio(1, 2)])
+                .areas(frame.area());
+        let [input_area, _proj_area] =
+            Layout::vertical([Constraint::Length(3), Constraint::Fill(1)]).areas(left_area);
+
+        frame.render_widget(&mut *self, frame.area());
+
+        if self.input.input_mode == InputMode::Editing {
+            let cursor_x = input_area.x + 1 + self.input.input_area.visual_cursor() as u16;
+            let cursor_y = input_area.y + 1;
+            frame.set_cursor_position((cursor_x, cursor_y));
+        }
     }
 
     fn handle_events(&mut self) -> io::Result<()> {
@@ -141,6 +153,7 @@ impl App {
                 _ => {}
             },
             InputMode::Editing => match (key_event.code, key_event.modifiers) {
+                (KeyCode::Char('c'), KeyModifiers::CONTROL) => self.exit(),
                 (KeyCode::Esc, KeyModifiers::NONE) => self.stop_editing(),
                 (KeyCode::Enter, KeyModifiers::NONE) => self.stop_editing(),
                 (KeyCode::Char('n'), KeyModifiers::CONTROL)
@@ -214,7 +227,7 @@ impl App {
     fn render_input(&mut self, area: Rect, buf: &mut Buffer) {
         let style = match self.input.input_mode {
             InputMode::Normal => Style::default(),
-            InputMode::Editing => Style::new().bg(GRAY.c900),
+            InputMode::Editing => Style::new().cyan(),
         };
         let input = Paragraph::new(self.input.input_area.value())
             .style(style)
@@ -231,8 +244,8 @@ impl App {
             .collect();
         let list = List::new(items)
             .block(Block::default().title("Projects").borders(Borders::ALL))
-            .highlight_symbol(">")
-            .highlight_style(Style::new().bold().bg(GRAY.c900))
+            .highlight_symbol("> ")
+            .highlight_style(Style::new().bold().cyan())
             .highlight_spacing(ratatui::widgets::HighlightSpacing::Always);
 
         StatefulWidget::render(list, area, buf, &mut self.state);
