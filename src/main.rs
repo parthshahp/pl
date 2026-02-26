@@ -11,6 +11,8 @@ use serde::Deserialize;
 use std::ffi::OsString;
 use std::path::PathBuf;
 use std::{fs, io};
+use tui_input::Input;
+use tui_input::backend::crossterm::EventHandler;
 
 fn main() -> io::Result<()> {
     ratatui::run(|terminal| App::default().run(terminal))?;
@@ -55,13 +57,28 @@ fn load_user_config() -> io::Result<UserConfig> {
 #[derive(Debug, Default)]
 struct App {
     projects: Vec<Project>,
+    filtered_projects: Vec<Project>,
     user_config: UserConfig,
     state: ListState,
+    input: InputStruct,
     pending_open: bool,
     exit: bool,
 }
 
-#[derive(Debug)]
+#[derive(Default, Debug)]
+struct InputStruct {
+    input_area: Input,
+    input_mode: InputMode,
+}
+
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
+enum InputMode {
+    #[default]
+    Normal,
+    Editing,
+}
+
+#[derive(Debug, Clone)]
 struct Project {
     project_name: OsString,
     project_path: PathBuf,
@@ -71,9 +88,12 @@ impl App {
     fn run(&mut self, terminal: &mut DefaultTerminal) -> io::Result<()> {
         self.user_config = load_user_config()?;
 
+        self.input.input_mode = InputMode::Editing;
+
         // TODO: Remove the clone if possible
         let proj_dirs = self.user_config.project_dirs.clone();
         self.projects = get_all_projects(proj_dirs);
+        self.filtered_projects = self.projects.clone();
 
         self.state.select_first();
 
@@ -109,14 +129,46 @@ impl App {
     }
 
     fn handle_key_event(&mut self, key_event: KeyEvent) {
-        match key_event.code {
-            KeyCode::Char('q') => self.exit(),
-            KeyCode::Char('j') => self.state.select_next(),
-            KeyCode::Char('k') => self.state.select_previous(),
-            KeyCode::Char('G') => self.state.select_last(),
-            // TODO: Implement 'gg'
-            KeyCode::Enter => self.open_project(),
-            _ => {}
+        match self.input.input_mode {
+            InputMode::Normal => match key_event.code {
+                KeyCode::Char('q') | KeyCode::Esc => self.exit(),
+                KeyCode::Char('j') | KeyCode::Down => self.state.select_next(),
+                KeyCode::Char('k') | KeyCode::Up => self.state.select_previous(),
+                // TODO: Implement 'gg'
+                KeyCode::Char('G') => self.state.select_last(),
+                KeyCode::Char('/') => self.start_editing(),
+                KeyCode::Enter => self.open_project(),
+                _ => {}
+            },
+            InputMode::Editing => match key_event.code {
+                KeyCode::Esc => self.stop_editing(),
+                KeyCode::Enter => self.stop_editing(),
+                _ => {
+                    self.input.input_area.handle_event(&Event::Key(key_event));
+                    self.filter_results();
+                }
+            },
+        }
+    }
+
+    fn filter_results(&mut self) {
+        let q = self.input.input_area.value().to_lowercase();
+
+        if q.is_empty() {
+            self.filtered_projects = self.projects.clone();
+        } else {
+            self.filtered_projects = self
+                .projects
+                .iter()
+                .filter(|p| p.project_name.to_string_lossy().to_lowercase().contains(&q))
+                .cloned()
+                .collect();
+        }
+
+        if self.filtered_projects.is_empty() {
+            self.state.select(None);
+        } else {
+            self.state.select_first();
         }
     }
 
@@ -128,22 +180,47 @@ impl App {
         self.pending_open = true;
         self.exit = true;
     }
+
+    // Input Methods
+    fn start_editing(&mut self) {
+        self.input.input_mode = InputMode::Editing
+    }
+
+    fn stop_editing(&mut self) {
+        self.input.input_mode = InputMode::Normal
+    }
 }
 
 impl Widget for &mut App {
     fn render(self, area: Rect, buf: &mut Buffer) {
         let [left_area, right_area] =
             Layout::horizontal([Constraint::Ratio(1, 2), Constraint::Ratio(1, 2)]).areas(area);
-        self.render_project_list(left_area, buf);
+        let [input_area, proj_area] =
+            Layout::vertical([Constraint::Length(3), Constraint::Fill(1)]).areas(left_area);
+
+        self.render_input(input_area, buf);
+        self.render_project_list(proj_area, buf);
         self.render_readme(right_area, buf);
     }
 }
 
 /// UI Logic
 impl App {
+    fn render_input(&mut self, area: Rect, buf: &mut Buffer) {
+        let style = match self.input.input_mode {
+            InputMode::Normal => Style::default(),
+            InputMode::Editing => Style::new().bg(GRAY.c900),
+        };
+        let input = Paragraph::new(self.input.input_area.value())
+            .style(style)
+            .block(Block::bordered().title("Input"));
+
+        Widget::render(input, area, buf);
+    }
+
     fn render_project_list(&mut self, area: Rect, buf: &mut Buffer) {
         let items: Vec<ListItem> = self
-            .projects
+            .filtered_projects
             .iter()
             .map(|p| ListItem::new(p.project_name.to_string_lossy()))
             .collect();
@@ -158,8 +235,14 @@ impl App {
 
     fn render_readme(&self, area: Rect, buf: &mut Buffer) {
         // TODO: Either handle the None as 0 or make it so that unselected state is impossible
-        let selected_index = self.state.selected().unwrap();
-        let selected_path = &self.projects.get(selected_index).unwrap().project_path;
+        let Some(selected_index) = self.state.selected() else {
+            return;
+        };
+        let selected_path = &self
+            .filtered_projects
+            .get(selected_index)
+            .unwrap()
+            .project_path;
         let readme_path = selected_path.join("README.md");
 
         if let Ok(contents) = std::fs::read_to_string(&readme_path) {

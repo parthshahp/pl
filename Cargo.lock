@@ -879,6 +879,7 @@ dependencies = [
  "ratatui",
  "serde",
  "toml",
+ "tui-input",
 ]
 
 [[package]]
@@ -1445,6 +1446,16 @@ name = "toml_writer"
 version = "1.0.6+spec-1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ab16f14aed21ee8bfd8ec22513f7287cd4a91aa92e44edfe2c17ddd004e92607"
+
+[[package]]
+name = "tui-input"
+version = "0.15.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "79c1ee964298f136020f5f69e0e601f4d3a1f610a7baf1af9fcb96152e8a2c45"
+dependencies = [
+ "ratatui",
+ "unicode-width",
+]
 
 [[package]]
 name = "typenum"
