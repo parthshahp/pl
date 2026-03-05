@@ -1,5 +1,6 @@
 use std::ffi::OsString;
-use std::fs;
+use std::fs::{self, DirEntry};
+use std::io;
 use std::path::PathBuf;
 
 #[derive(Debug, Clone)]
@@ -23,9 +24,61 @@ pub fn get_all_projects(proj_dirs: &[String]) -> Vec<Project> {
         .map(|entry| Project {
             project_name: entry.file_name(),
             project_path: entry.path(),
-            project_remote: "google.com".to_string(),
+            project_remote: get_remote(&entry).unwrap_or("".to_string()),
         })
         .collect()
+}
+
+fn get_remote(entry: &DirEntry) -> Result<String, io::Error> {
+    let path = entry.path();
+    let mut command = std::process::Command::new("git");
+    command
+        .args(["config", "--get", "remote.origin.url"])
+        .current_dir(path);
+    let url = command.output()?.stdout;
+
+    if url.is_empty() {
+        return Err(io::Error::new(io::ErrorKind::NotFound, "No Git Remote"));
+    }
+
+    let url = String::from_utf8(url).unwrap();
+    let url = convert_git_remote_to_url(url);
+
+    Ok(url)
+}
+
+// This was implemented with AI
+fn convert_git_remote_to_url(remote: String) -> String {
+    let remote = remote.trim();
+
+    if remote.is_empty() {
+        return String::new();
+    }
+
+    if remote.starts_with("http://") || remote.starts_with("https://") {
+        return remote.trim_end_matches(".git").to_string();
+    }
+
+    if let Some(rest) = remote.strip_prefix("git@")
+        && let Some((host, path)) = rest.split_once(':')
+    {
+        return format!("https://{host}/{}", path.trim_end_matches(".git"));
+    }
+
+    if let Some(rest) = remote.strip_prefix("ssh://") {
+        let rest = rest.strip_prefix("git@").unwrap_or(rest);
+        if let Some((host, path)) = rest.split_once('/') {
+            return format!("https://{host}/{}", path.trim_end_matches(".git"));
+        }
+    }
+
+    if let Some(rest) = remote.strip_prefix("git://")
+        && let Some((host, path)) = rest.split_once('/')
+    {
+        return format!("https://{host}/{}", path.trim_end_matches(".git"));
+    }
+
+    remote.trim_end_matches(".git").to_string()
 }
 
 fn parse_dir(proj_dir: &str) -> PathBuf {

@@ -32,6 +32,7 @@ pub fn handle_key_event(app: &mut App, key_event: KeyEvent) {
             (KeyCode::Char('p'), KeyModifiers::CONTROL) | (KeyCode::Up, KeyModifiers::NONE) => {
                 app.state.select_previous()
             }
+            (KeyCode::Char('o'), KeyModifiers::CONTROL) => app.open_project_remote(),
             _ => {
                 app.input.handle_event(&Event::Key(key_event));
                 app.filter_results();
