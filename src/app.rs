@@ -19,6 +19,7 @@ pub struct App {
     open_target: Option<PathBuf>,
     readme_cache: HashMap<PathBuf, Option<String>>,
     sort_state: SortState,
+    pub show_help: bool,
 }
 
 #[derive(Debug, Default)]
@@ -52,13 +53,14 @@ impl App {
             filtered_projects,
             state,
             input: Input::default(),
-            input_mode: InputMode::Editing,
+            input_mode: InputMode::default(),
             user_config,
             projects,
             exit: false,
             open_target: None,
             readme_cache: HashMap::new(),
             sort_state: SortState::default(),
+            show_help: false,
         })
     }
 
@@ -151,6 +153,17 @@ impl App {
                 let contents = std::fs::read_to_string(entry.key()).ok();
                 entry.insert(contents).as_deref()
             }
+        }
+    }
+
+    pub fn toggle_help(&mut self) {
+        self.show_help = !self.show_help;
+    }
+
+    pub fn sort_label(&self) -> &str {
+        match self.sort_state {
+            SortState::Alphabetical => "A-Z",
+            SortState::RecentlyModified => "Recent",
         }
     }
 
