@@ -88,7 +88,12 @@ fn centered_rect(area: Rect, max_width: u16, max_height: u16) -> Rect {
     let height = max_height.min(area.height);
     let x = area.x + (area.width.saturating_sub(width)) / 2;
     let y = area.y + (area.height.saturating_sub(height)) / 2;
-    Rect { x, y, width, height }
+    Rect {
+        x,
+        y,
+        width,
+        height,
+    }
 }
 
 fn render_help_popup(frame: &mut Frame) {
@@ -119,7 +124,23 @@ fn render_help_popup(frame: &mut Frame) {
 }
 
 fn render_readme(frame: &mut Frame, app: &mut App, area: ratatui::layout::Rect) {
+    let has_remote = app
+        .selected_project()
+        .is_some_and(|p| !p.project_remote.is_empty());
+
     let contents = app.selected_readme().unwrap_or("No README");
-    let widget = Paragraph::new(contents).block(Block::bordered().title("README"));
+    let mut widget = Paragraph::new(contents).block(Block::bordered().title("README"));
+
+    if has_remote {
+        widget = Paragraph::new(contents).block(
+            Block::bordered().title("README").title_bottom(
+                Line::from(vec![
+                    Span::styled("O", KEYBIND_STYLE),
+                    Span::raw("pen in Github"),
+                ])
+                .centered(),
+            ),
+        );
+    }
     frame.render_widget(widget, area);
 }

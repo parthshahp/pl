@@ -50,7 +50,7 @@ fn get_remote(entry: &DirEntry) -> Result<String, io::Error> {
     Ok(url)
 }
 
-// This was implemented with AI
+// This function was implemented with AI
 fn convert_git_remote_to_url(remote: String) -> String {
     let remote = remote.trim();
 
