@@ -8,6 +8,7 @@ use ratatui::widgets::{
 };
 
 const KEYBIND_STYLE: Style = Style::new().bold().blue();
+const TITLE_STYLE: Style = Style::new().bold().red();
 
 pub fn draw(frame: &mut Frame, app: &mut App) {
     let [left_area, right_area] =
@@ -38,7 +39,7 @@ fn render_input(frame: &mut Frame, app: &App, area: ratatui::layout::Rect) {
 
     let widget = Paragraph::new(app.input.value())
         .style(style)
-        .block(Block::bordered().title("Search"));
+        .block(Block::bordered().title(Span::styled("Search", TITLE_STYLE)));
 
     frame.render_widget(widget, area);
 }
@@ -51,8 +52,9 @@ fn render_project_list(frame: &mut Frame, app: &mut App, area: ratatui::layout::
         .collect();
 
     let title = Line::from(vec![
-        Span::default().content("Projects ["),
-        Span::default().content(format!("{}]", app.sort_label())),
+        Span::styled("Projects", TITLE_STYLE),
+        Span::raw(" ["),
+        Span::raw(format!("{}]", app.sort_label())),
         Span::styled("s", KEYBIND_STYLE),
     ]);
 
@@ -115,7 +117,7 @@ fn render_help_popup(frame: &mut Frame) {
 
     let widget = Paragraph::new(lines).block(
         Block::default()
-            .title(Line::raw("Keybinds").centered())
+            .title(Line::from(vec![Span::styled("Keybinds", TITLE_STYLE)]).centered())
             .borders(Borders::ALL)
             .padding(Padding::new(2, 2, 1, 1)),
     );
@@ -129,17 +131,20 @@ fn render_readme(frame: &mut Frame, app: &mut App, area: ratatui::layout::Rect) 
         .is_some_and(|p| !p.project_remote.is_empty());
 
     let contents = app.selected_readme().unwrap_or("No README");
-    let mut widget = Paragraph::new(contents).block(Block::bordered().title("README"));
+    let mut widget = Paragraph::new(contents)
+        .block(Block::bordered().title(Span::styled("README", TITLE_STYLE)));
 
     if has_remote {
         widget = Paragraph::new(contents).block(
-            Block::bordered().title("README").title_bottom(
-                Line::from(vec![
-                    Span::styled("O", KEYBIND_STYLE),
-                    Span::raw("pen in Github"),
-                ])
-                .centered(),
-            ),
+            Block::bordered()
+                .title(Span::styled("README", TITLE_STYLE))
+                .title_bottom(
+                    Line::from(vec![
+                        Span::styled("O", KEYBIND_STYLE),
+                        Span::raw("pen in Github"),
+                    ])
+                    .centered(),
+                ),
         );
     }
     frame.render_widget(widget, area);
