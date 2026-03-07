@@ -1,9 +1,11 @@
 use crate::app::{App, InputMode};
 use ratatui::Frame;
-use ratatui::layout::{Alignment, Constraint, Layout, Margin};
+use ratatui::layout::{Constraint, Layout, Margin};
 use ratatui::style::Style;
 use ratatui::text::{Line, Span};
-use ratatui::widgets::{Block, Borders, Clear, HighlightSpacing, List, ListItem, Paragraph};
+use ratatui::widgets::{
+    Block, Borders, Clear, HighlightSpacing, List, ListItem, Padding, Paragraph,
+};
 
 const KEYBIND_STYLE: Style = Style::new().bold().blue();
 
@@ -74,20 +76,37 @@ fn render_project_list(frame: &mut Frame, app: &mut App, area: ratatui::layout::
     frame.render_stateful_widget(widget, area, &mut app.state);
 }
 
+fn help_line<'a>(key: &'a str, desc: &'a str) -> Line<'a> {
+    Line::from(vec![
+        Span::styled(key, KEYBIND_STYLE),
+        Span::raw(format!("  {desc}")),
+    ])
+}
+
 fn render_help_popup(frame: &mut Frame) {
-    let help_rect = frame.area().inner(Margin::new(8, 8));
+    let help_rect = frame.area().inner(Margin::new(16, 16));
     frame.render_widget(Clear, help_rect);
-    frame.render_widget(
+
+    let lines = vec![
+        help_line("j / ↓", "move down"),
+        help_line("k / ↑", "move up"),
+        help_line("G", "go to last"),
+        help_line("/", "search"),
+        help_line("Enter", "open project"),
+        help_line("o", "open remote in browser"),
+        help_line("s", "cycle sort (A-Z / Recent)"),
+        help_line("?", "toggle this help"),
+        help_line("q / Esc", "quit"),
+    ];
+
+    let widget = Paragraph::new(lines).block(
         Block::default()
-            .title_top("Keybinds")
-            .title_bottom(vec![
-                Span::styled("q", KEYBIND_STYLE),
-                Span::default().content("uit"),
-            ])
-            .title_alignment(Alignment::Center)
-            .borders(Borders::ALL),
-        help_rect,
+            .title(Line::raw("Keybinds").centered())
+            .borders(Borders::ALL)
+            .padding(Padding::new(2, 2, 1, 1)),
     );
+
+    frame.render_widget(widget, help_rect);
 }
 
 fn render_readme(frame: &mut Frame, app: &mut App, area: ratatui::layout::Rect) {
