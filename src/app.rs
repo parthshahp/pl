@@ -1,6 +1,8 @@
 use crate::config::{UserConfig, load_user_config};
 use crate::project::{Project, get_all_projects};
 use ratatui::widgets::ListState;
+use std::collections::HashMap;
+use std::collections::hash_map::Entry;
 use std::io;
 use std::path::PathBuf;
 use tui_input::Input;
@@ -15,6 +17,7 @@ pub struct App {
     projects: Vec<Project>,
     exit: bool,
     open_target: Option<PathBuf>,
+    readme_cache: HashMap<PathBuf, Option<String>>,
 }
 
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
@@ -46,6 +49,7 @@ impl App {
             projects,
             exit: false,
             open_target: None,
+            readme_cache: HashMap::new(),
         })
     }
 
@@ -125,6 +129,19 @@ impl App {
 
         if let Err(err) = open::that(&remote) {
             eprintln!("failed to open remote '{remote}': {err}");
+        }
+    }
+
+    pub fn selected_readme(&mut self) -> Option<&str> {
+        let project = self.selected_project()?;
+        let readme_path = project.project_path.join("README.md");
+
+        match self.readme_cache.entry(readme_path) {
+            Entry::Occupied(entry) => entry.into_mut().as_deref(),
+            Entry::Vacant(entry) => {
+                let contents = std::fs::read_to_string(entry.key()).ok();
+                entry.insert(contents).as_deref()
+            }
         }
     }
 }

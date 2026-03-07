@@ -1,8 +1,8 @@
 use crate::app::{App, InputMode};
+use ratatui::Frame;
 use ratatui::layout::{Constraint, Layout};
 use ratatui::style::Style;
 use ratatui::widgets::{Block, Borders, HighlightSpacing, List, ListItem, Paragraph};
-use ratatui::Frame;
 
 pub fn draw(frame: &mut Frame, app: &mut App) {
     let [left_area, right_area] =
@@ -50,20 +50,8 @@ fn render_project_list(frame: &mut Frame, app: &mut App, area: ratatui::layout::
     frame.render_stateful_widget(widget, area, &mut app.state);
 }
 
-fn render_readme(frame: &mut Frame, app: &App, area: ratatui::layout::Rect) {
-    let Some(project) = app.selected_project() else {
-        return;
-    };
-
-    let readme_path = project.project_path.join("README.md");
-
-    let widget = if let Ok(contents) = std::fs::read_to_string(&readme_path) {
-        Paragraph::new(contents).block(Block::bordered().title("README"))
-    } else {
-        Paragraph::new("No README")
-            .centered()
-            .block(Block::bordered().title("README"))
-    };
-
+fn render_readme(frame: &mut Frame, app: &mut App, area: ratatui::layout::Rect) {
+    let contents = app.selected_readme().unwrap_or("No README");
+    let widget = Paragraph::new(contents).block(Block::bordered().title("README"));
     frame.render_widget(widget, area);
 }
