@@ -18,6 +18,14 @@ pub struct App {
     exit: bool,
     open_target: Option<PathBuf>,
     readme_cache: HashMap<PathBuf, Option<String>>,
+    sort_state: SortState,
+}
+
+#[derive(Debug, Default)]
+enum SortState {
+    #[default]
+    Alphabetical,
+    RecentlyModified,
 }
 
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
@@ -50,6 +58,7 @@ impl App {
             exit: false,
             open_target: None,
             readme_cache: HashMap::new(),
+            sort_state: SortState::default(),
         })
     }
 
@@ -143,6 +152,27 @@ impl App {
                 entry.insert(contents).as_deref()
             }
         }
+    }
+
+    pub fn next_sort(&mut self) {
+        match self.sort_state {
+            SortState::Alphabetical => {
+                self.sort_state = SortState::RecentlyModified;
+                self.projects.sort_by(|a, b| {
+                    let a_modified = a.project_path.metadata().and_then(|m| m.modified()).ok();
+                    let b_modified = b.project_path.metadata().and_then(|m| m.modified()).ok();
+
+                    b_modified.cmp(&a_modified)
+                });
+            }
+            SortState::RecentlyModified => {
+                self.sort_state = SortState::Alphabetical;
+                self.projects
+                    .sort_by(|a, b| a.project_name.cmp(&b.project_name));
+            }
+        }
+
+        self.filter_results();
     }
 }
 

@@ -20,6 +20,7 @@ pub fn handle_key_event(app: &mut App, key_event: KeyEvent) {
             KeyCode::Char('/') => app.start_editing(),
             KeyCode::Enter => app.open_selected_project(),
             KeyCode::Char('o') => app.open_project_remote(),
+            KeyCode::Char('s') => app.next_sort(),
             _ => {}
         },
         InputMode::Editing => match (key_event.code, key_event.modifiers) {

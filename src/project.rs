@@ -11,7 +11,7 @@ pub struct Project {
 }
 
 pub fn get_all_projects(proj_dirs: &[String]) -> Vec<Project> {
-    proj_dirs
+    let mut projects: Vec<Project> = proj_dirs
         .iter()
         .map(|dir| parse_dir(dir))
         .flat_map(|dir| {
@@ -26,7 +26,10 @@ pub fn get_all_projects(proj_dirs: &[String]) -> Vec<Project> {
             project_path: entry.path(),
             project_remote: get_remote(&entry).unwrap_or("".to_string()),
         })
-        .collect()
+        .collect();
+
+    projects.sort_by(|a, b| a.project_name.cmp(&b.project_name));
+    projects
 }
 
 fn get_remote(entry: &DirEntry) -> Result<String, io::Error> {
