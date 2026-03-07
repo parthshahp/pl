@@ -25,6 +25,7 @@ pub fn handle_key_event(app: &mut App, key_event: KeyEvent) {
             KeyCode::Char('j') | KeyCode::Down => app.state.select_next(),
             KeyCode::Char('k') | KeyCode::Up => app.state.select_previous(),
             KeyCode::Char('G') => app.state.select_last(),
+            KeyCode::Char('g') => app.state.select_first(),
             KeyCode::Char('/') => app.start_editing(),
             KeyCode::Enter => app.open_selected_project(),
             KeyCode::Char('o') => app.open_project_remote(),

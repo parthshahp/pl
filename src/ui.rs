@@ -1,6 +1,6 @@
 use crate::app::{App, InputMode};
 use ratatui::Frame;
-use ratatui::layout::{Constraint, Layout, Margin};
+use ratatui::layout::{Constraint, Layout, Rect};
 use ratatui::style::Style;
 use ratatui::text::{Line, Span};
 use ratatui::widgets::{
@@ -83,13 +83,22 @@ fn help_line<'a>(key: &'a str, desc: &'a str) -> Line<'a> {
     ])
 }
 
+fn centered_rect(area: Rect, max_width: u16, max_height: u16) -> Rect {
+    let width = max_width.min(area.width);
+    let height = max_height.min(area.height);
+    let x = area.x + (area.width.saturating_sub(width)) / 2;
+    let y = area.y + (area.height.saturating_sub(height)) / 2;
+    Rect { x, y, width, height }
+}
+
 fn render_help_popup(frame: &mut Frame) {
-    let help_rect = frame.area().inner(Margin::new(16, 16));
+    let help_rect = centered_rect(frame.area(), 50, 20);
     frame.render_widget(Clear, help_rect);
 
     let lines = vec![
         help_line("j / ↓", "move down"),
         help_line("k / ↑", "move up"),
+        help_line("g", "go to first"),
         help_line("G", "go to last"),
         help_line("/", "search"),
         help_line("Enter", "open project"),
